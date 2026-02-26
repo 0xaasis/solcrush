@@ -122,6 +122,6 @@
     { "code": 6008, "name": "InvalidTreasury", "msg": "Invalid treasury account" }
   ],
   "metadata": {
-    "address": "REPLACE_AFTER_DEPLOY"
+    "address": "7LLvnnLaqME25Kuf7Q6nUgFrrKKSWxUNdC62fFV21eZs"
   }
 }
