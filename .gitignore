@@ -1,0 +1,15 @@
+target/
+.anchor/
+node_modules/
+.next/
+dist/
+build/
+*.so
+*.keypair
+.env.local
+.env*.local
+*.bak
+wallets/
+__pycache__/
+.DS_Store
+Thumbs.db

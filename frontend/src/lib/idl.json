@@ -1,0 +1,127 @@
+{
+  "version": "0.1.0",
+  "name": "solcrush_staking",
+  "instructions": [
+    {
+      "name": "initializeMatch",
+      "accounts": [
+        { "name": "matchEscrow", "isMut": true, "isSigner": false },
+        { "name": "vault", "isMut": true, "isSigner": false },
+        { "name": "tokenMint", "isMut": false, "isSigner": false },
+        { "name": "playerOneAta", "isMut": true, "isSigner": false },
+        { "name": "playerOne", "isMut": true, "isSigner": true },
+        { "name": "treasury", "isMut": false, "isSigner": false },
+        { "name": "tokenProgram", "isMut": false, "isSigner": false },
+        { "name": "associatedTokenProgram", "isMut": false, "isSigner": false },
+        { "name": "systemProgram", "isMut": false, "isSigner": false },
+        { "name": "rent", "isMut": false, "isSigner": false }
+      ],
+      "args": [
+        { "name": "matchId", "type": { "array": ["u8", 32] } },
+        { "name": "stakeAmount", "type": "u64" },
+        { "name": "isSol", "type": "bool" }
+      ]
+    },
+    {
+      "name": "depositStake",
+      "accounts": [
+        { "name": "matchEscrow", "isMut": true, "isSigner": false },
+        { "name": "vault", "isMut": true, "isSigner": false },
+        { "name": "tokenMint", "isMut": false, "isSigner": false },
+        { "name": "playerTwoAta", "isMut": true, "isSigner": false },
+        { "name": "playerTwo", "isMut": true, "isSigner": true },
+        { "name": "tokenProgram", "isMut": false, "isSigner": false },
+        { "name": "associatedTokenProgram", "isMut": false, "isSigner": false },
+        { "name": "systemProgram", "isMut": false, "isSigner": false }
+      ],
+      "args": []
+    },
+    {
+      "name": "resolveMatch",
+      "accounts": [
+        { "name": "matchEscrow", "isMut": true, "isSigner": false },
+        { "name": "vault", "isMut": true, "isSigner": false },
+        { "name": "tokenMint", "isMut": false, "isSigner": false },
+        { "name": "caller", "isMut": true, "isSigner": true },
+        { "name": "playerOne", "isMut": true, "isSigner": false },
+        { "name": "playerTwo", "isMut": true, "isSigner": false },
+        { "name": "playerOneAta", "isMut": true, "isSigner": false },
+        { "name": "playerTwoAta", "isMut": true, "isSigner": false },
+        { "name": "treasury", "isMut": true, "isSigner": false },
+        { "name": "treasuryAta", "isMut": true, "isSigner": false },
+        { "name": "tokenProgram", "isMut": false, "isSigner": false },
+        { "name": "associatedTokenProgram", "isMut": false, "isSigner": false },
+        { "name": "systemProgram", "isMut": false, "isSigner": false }
+      ],
+      "args": [
+        { "name": "winner", "type": "publicKey" }
+      ]
+    },
+    {
+      "name": "cancelMatch",
+      "accounts": [
+        { "name": "matchEscrow", "isMut": true, "isSigner": false },
+        { "name": "vault", "isMut": true, "isSigner": false },
+        { "name": "tokenMint", "isMut": false, "isSigner": false },
+        { "name": "caller", "isMut": true, "isSigner": true },
+        { "name": "playerOne", "isMut": true, "isSigner": false },
+        { "name": "playerTwo", "isMut": true, "isSigner": false },
+        { "name": "playerOneAta", "isMut": true, "isSigner": false },
+        { "name": "playerTwoAta", "isMut": true, "isSigner": false },
+        { "name": "tokenProgram", "isMut": false, "isSigner": false },
+        { "name": "associatedTokenProgram", "isMut": false, "isSigner": false },
+        { "name": "systemProgram", "isMut": false, "isSigner": false }
+      ],
+      "args": []
+    }
+  ],
+  "accounts": [
+    {
+      "name": "MatchEscrow",
+      "type": {
+        "kind": "struct",
+        "fields": [
+          { "name": "matchId", "type": { "array": ["u8", 32] } },
+          { "name": "playerOne", "type": "publicKey" },
+          { "name": "playerTwo", "type": "publicKey" },
+          { "name": "stakeAmount", "type": "u64" },
+          { "name": "isSol", "type": "bool" },
+          { "name": "status", "type": { "defined": "EscrowStatus" } },
+          { "name": "createdAt", "type": "i64" },
+          { "name": "feeBps", "type": "u16" },
+          { "name": "treasury", "type": "publicKey" },
+          { "name": "bump", "type": "u8" },
+          { "name": "vaultBump", "type": "u8" }
+        ]
+      }
+    }
+  ],
+  "types": [
+    {
+      "name": "EscrowStatus",
+      "type": {
+        "kind": "enum",
+        "variants": [
+          { "name": "WaitingForPlayer2" },
+          { "name": "Active" },
+          { "name": "Resolved" },
+          { "name": "Cancelled" }
+        ]
+      }
+    }
+  ],
+  "errors": [
+    { "code": 6000, "name": "NotWaitingForP2", "msg": "Match is not waiting for player 2" },
+    { "code": 6001, "name": "MatchNotActive", "msg": "Match is not in active status" },
+    { "code": 6002, "name": "NotAParticipant", "msg": "Player is not a participant in this match" },
+    { "code": 6003, "name": "InvalidWinner", "msg": "Winner must be one of the two players" },
+    { "code": 6004, "name": "ZeroStake", "msg": "Stake amount must be greater than zero" },
+    { "code": 6005, "name": "AlreadyResolved", "msg": "Cannot cancel an already resolved match" },
+    { "code": 6006, "name": "Overflow", "msg": "Arithmetic overflow" },
+    { "code": 6007, "name": "NotTimedOut", "msg": "Match has not timed out yet" },
+    { "code": 6008, "name": "InvalidTreasury", "msg": "Invalid treasury account" }
+  ],
+  "metadata": {
+    "address": "REPLACE_AFTER_DEPLOY"
+  }
+}

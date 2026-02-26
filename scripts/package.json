@@ -1,0 +1,19 @@
+{
+  "name": "solcrush-scripts",
+  "version": "0.1.0",
+  "private": true,
+  "scripts": {
+    "setup-usdc": "ts-node setup-devnet-usdc.ts",
+    "test": "ts-node test-staking.ts"
+  },
+  "dependencies": {
+    "@coral-xyz/anchor": "^0.29.0",
+    "@solana/spl-token": "^0.3.9",
+    "@solana/web3.js": "^1.87.6"
+  },
+  "devDependencies": {
+    "@types/node": "^20",
+    "ts-node": "^10.9.2",
+    "typescript": "^5"
+  }
+}

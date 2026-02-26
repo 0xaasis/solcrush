@@ -1,0 +1,429 @@
+@tailwind base;
+@tailwind components;
+@tailwind utilities;
+
+/* ============================================================================
+   SOLCRUSH - GLOBAL STYLES
+   Candy-themed styling for the sweetest game on Solana
+   ============================================================================ */
+
+:root {
+  --color-red: #FF4757;
+  --color-orange: #FF9F43;
+  --color-yellow: #FECA57;
+  --color-green: #26DE81;
+  --color-blue: #45AAF2;
+  --color-purple: #A55EEA;
+  --bg-gradient-start: #667eea;
+  --bg-gradient-mid: #764ba2;
+  --bg-gradient-end: #f093fb;
+}
+
+/* Fonts */
+.font-nunito {
+  font-family: 'Nunito', system-ui, -apple-system, sans-serif;
+}
+
+body {
+  font-family: 'Nunito', system-ui, -apple-system, sans-serif;
+  background: linear-gradient(180deg, var(--bg-gradient-start), var(--bg-gradient-mid), var(--bg-gradient-end));
+  min-height: 100vh;
+  overflow-x: hidden;
+}
+
+/* Selection */
+::selection {
+  background: rgba(102, 126, 234, 0.4);
+  color: white;
+}
+
+/* ============================================================================
+   WALLET ADAPTER CUSTOM STYLES
+   ============================================================================ */
+
+.wallet-adapter-button {
+  background: linear-gradient(135deg, #667eea, #764ba2) !important;
+  border-radius: 1rem !important;
+  font-weight: 700 !important;
+  font-family: 'Nunito', sans-serif !important;
+  padding: 0.75rem 1.5rem !important;
+  transition: all 0.2s ease !important;
+  border: none !important;
+}
+
+.wallet-adapter-button:hover {
+  transform: scale(1.03);
+  box-shadow: 0 0 30px rgba(102, 126, 234, 0.5);
+}
+
+.wallet-adapter-modal-wrapper {
+  background: rgba(102, 126, 234, 0.9) !important;
+  backdrop-filter: blur(20px) !important;
+}
+
+.wallet-adapter-modal-container {
+  background: linear-gradient(135deg, #764ba2, #667eea) !important;
+  border: 2px solid rgba(255, 255, 255, 0.2) !important;
+  border-radius: 1.5rem !important;
+  box-shadow: 0 20px 60px rgba(0, 0, 0, 0.4) !important;
+}
+
+.wallet-adapter-modal-title {
+  color: white !important;
+  font-weight: 800 !important;
+  font-family: 'Nunito', sans-serif !important;
+}
+
+.wallet-adapter-modal-list li {
+  background: rgba(255, 255, 255, 0.1) !important;
+  border-radius: 1rem !important;
+  margin-bottom: 0.5rem !important;
+  transition: all 0.2s ease !important;
+  border: 1px solid rgba(255, 255, 255, 0.1) !important;
+}
+
+.wallet-adapter-modal-list li:hover {
+  background: rgba(255, 255, 255, 0.2) !important;
+  transform: translateX(4px);
+}
+
+.wallet-adapter-modal-list .wallet-adapter-button {
+  background: transparent !important;
+  padding: 1rem !important;
+}
+
+.wallet-adapter-modal-button-close {
+  background: rgba(255, 255, 255, 0.1) !important;
+  border-radius: 50% !important;
+}
+
+.wallet-adapter-modal-button-close:hover {
+  background: rgba(255, 255, 255, 0.2) !important;
+}
+
+/* ============================================================================
+   GAME ANIMATIONS
+   ============================================================================ */
+
+@keyframes gem-match {
+  0% {
+    transform: scale(1);
+    opacity: 1;
+  }
+  50% {
+    transform: scale(1.5);
+    filter: brightness(1.5);
+  }
+  100% {
+    transform: scale(0);
+    opacity: 0;
+  }
+}
+
+@keyframes gem-drop {
+  0% {
+    transform: translateY(-80px) scale(0.5) rotate(-10deg);
+    opacity: 0;
+  }
+  60% {
+    transform: translateY(10px) scale(1.1) rotate(3deg);
+  }
+  80% {
+    transform: translateY(-5px) scale(0.95);
+  }
+  100% {
+    transform: translateY(0) scale(1) rotate(0deg);
+    opacity: 1;
+  }
+}
+
+@keyframes pulse-glow {
+  0%, 100% {
+    opacity: 0.5;
+    transform: scale(1);
+  }
+  50% {
+    opacity: 1;
+    transform: scale(1.15);
+  }
+}
+
+@keyframes float {
+  0%, 100% {
+    transform: translateY(0) rotate(0deg);
+  }
+  25% {
+    transform: translateY(-12px) rotate(3deg);
+  }
+  75% {
+    transform: translateY(-8px) rotate(-2deg);
+  }
+}
+
+@keyframes twinkle {
+  0%, 100% {
+    opacity: 0.3;
+    transform: scale(1);
+  }
+  50% {
+    opacity: 1;
+    transform: scale(1.8);
+  }
+}
+
+@keyframes spin {
+  to {
+    transform: rotate(360deg);
+  }
+}
+
+@keyframes electric-pulse {
+  0%, 100% {
+    box-shadow: 0 0 15px #FFD700, 0 0 30px #FF8C00;
+  }
+  50% {
+    box-shadow: 0 0 30px #FFD700, 0 0 60px #FF8C00, 0 0 90px #FFD700;
+  }
+}
+
+@keyframes confetti {
+  0% {
+    transform: translate(0, 0) rotate(0deg) scale(1);
+    opacity: 1;
+  }
+  100% {
+    transform: translate(var(--tx), var(--ty)) rotate(720deg) scale(0);
+    opacity: 0;
+  }
+}
+
+@keyframes combo-pop {
+  0% {
+    transform: translate(-50%, 0) scale(0) rotate(-15deg);
+    opacity: 0;
+  }
+  50% {
+    transform: translate(-50%, 0) scale(1.3) rotate(5deg);
+  }
+  100% {
+    transform: translate(-50%, 0) scale(1) rotate(0deg);
+    opacity: 1;
+  }
+}
+
+@keyframes bounce {
+  0%, 100% {
+    transform: translateY(0);
+    animation-timing-function: cubic-bezier(0.8, 0, 1, 1);
+  }
+  50% {
+    transform: translateY(-15px);
+    animation-timing-function: cubic-bezier(0, 0, 0.2, 1);
+  }
+}
+
+@keyframes pulse {
+  0%, 100% {
+    opacity: 1;
+    transform: scale(1);
+  }
+  50% {
+    opacity: 0.7;
+    transform: scale(1.05);
+  }
+}
+
+@keyframes shake {
+  0%, 100% { transform: translateX(0); }
+  25% { transform: translateX(-5px) rotate(-1deg); }
+  75% { transform: translateX(5px) rotate(1deg); }
+}
+
+@keyframes rainbow {
+  0% { filter: hue-rotate(0deg); }
+  100% { filter: hue-rotate(360deg); }
+}
+
+/* Animation Classes */
+.animate-gem-match {
+  animation: gem-match 0.35s ease-out forwards;
+}
+
+.animate-gem-drop {
+  animation: gem-drop 0.5s cubic-bezier(0.34, 1.56, 0.64, 1);
+}
+
+.animate-combo-pop {
+  animation: combo-pop 0.5s cubic-bezier(0.34, 1.56, 0.64, 1);
+}
+
+.animate-confetti {
+  animation: confetti 1.2s ease-out forwards;
+}
+
+.animate-shake {
+  animation: shake 0.4s ease-in-out;
+}
+
+.animate-rainbow {
+  animation: rainbow 3s linear infinite;
+}
+
+/* ============================================================================
+   UTILITY CLASSES
+   ============================================================================ */
+
+/* Glassmorphism */
+.glass {
+  background: rgba(255, 255, 255, 0.1);
+  backdrop-filter: blur(20px);
+  border: 1px solid rgba(255, 255, 255, 0.2);
+}
+
+.glass-dark {
+  background: rgba(0, 0, 0, 0.3);
+  backdrop-filter: blur(20px);
+  border: 1px solid rgba(255, 255, 255, 0.1);
+}
+
+/* Gradient text */
+.gradient-text {
+  background: linear-gradient(135deg, #FF6B6B, #FFE66D, #4ECDC4, #45B7D1, #A55EEA);
+  -webkit-background-clip: text;
+  -webkit-text-fill-color: transparent;
+  background-clip: text;
+}
+
+/* Candy button styles */
+.btn-candy {
+  position: relative;
+  background: linear-gradient(135deg, #FF6B6B, #FF9F43);
+  border-radius: 1rem;
+  padding: 1rem 2rem;
+  font-weight: 800;
+  color: white;
+  border: none;
+  cursor: pointer;
+  overflow: hidden;
+  transition: all 0.2s ease;
+}
+
+.btn-candy::before {
+  content: '';
+  position: absolute;
+  top: 0;
+  left: 0;
+  right: 0;
+  height: 50%;
+  background: linear-gradient(180deg, rgba(255,255,255,0.3), transparent);
+  border-radius: 1rem 1rem 0 0;
+}
+
+.btn-candy:hover {
+  transform: translateY(-2px);
+  box-shadow: 0 10px 30px rgba(255, 107, 107, 0.4);
+}
+
+.btn-candy:active {
+  transform: translateY(0);
+}
+
+/* Glow effects */
+.glow-red { box-shadow: 0 0 30px rgba(255, 71, 87, 0.5); }
+.glow-orange { box-shadow: 0 0 30px rgba(255, 159, 67, 0.5); }
+.glow-yellow { box-shadow: 0 0 30px rgba(254, 202, 87, 0.5); }
+.glow-green { box-shadow: 0 0 30px rgba(38, 222, 129, 0.5); }
+.glow-blue { box-shadow: 0 0 30px rgba(69, 170, 242, 0.5); }
+.glow-purple { box-shadow: 0 0 30px rgba(165, 94, 234, 0.5); }
+
+/* Text shadows */
+.text-shadow {
+  text-shadow: 0 2px 10px rgba(0, 0, 0, 0.3);
+}
+
+.text-shadow-lg {
+  text-shadow: 0 4px 20px rgba(0, 0, 0, 0.4);
+}
+
+/* Custom scrollbar */
+::-webkit-scrollbar {
+  width: 8px;
+  height: 8px;
+}
+
+::-webkit-scrollbar-track {
+  background: rgba(255, 255, 255, 0.1);
+  border-radius: 4px;
+}
+
+::-webkit-scrollbar-thumb {
+  background: linear-gradient(135deg, #667eea, #764ba2);
+  border-radius: 4px;
+}
+
+::-webkit-scrollbar-thumb:hover {
+  background: linear-gradient(135deg, #764ba2, #667eea);
+}
+
+/* ============================================================================
+   RESPONSIVE
+   ============================================================================ */
+
+@media (max-width: 640px) {
+  .wallet-adapter-modal-container {
+    margin: 1rem !important;
+    max-height: 85vh !important;
+  }
+}
+
+/* ============================================================================
+   LOADING SKELETON
+   ============================================================================ */
+
+.skeleton {
+  background: linear-gradient(
+    90deg,
+    rgba(255, 255, 255, 0.1) 25%,
+    rgba(255, 255, 255, 0.2) 50%,
+    rgba(255, 255, 255, 0.1) 75%
+  );
+  background-size: 200% 100%;
+  animation: skeleton-loading 1.5s infinite;
+}
+
+@keyframes skeleton-loading {
+  0% { background-position: 200% 0; }
+  100% { background-position: -200% 0; }
+}
+
+/* ============================================================================
+   SPECIAL EFFECTS
+   ============================================================================ */
+
+/* Candy shine effect */
+.candy-shine {
+  position: relative;
+  overflow: hidden;
+}
+
+.candy-shine::after {
+  content: '';
+  position: absolute;
+  top: -50%;
+  left: -50%;
+  width: 200%;
+  height: 200%;
+  background: linear-gradient(
+    to right,
+    transparent 0%,
+    rgba(255, 255, 255, 0.3) 50%,
+    transparent 100%
+  );
+  transform: rotate(45deg);
+  animation: shine 3s infinite;
+}
+
+@keyframes shine {
+  0% { transform: translateX(-100%) rotate(45deg); }
+  100% { transform: translateX(100%) rotate(45deg); }
+}
