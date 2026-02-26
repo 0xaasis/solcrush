@@ -5,10 +5,10 @@ anchor_version = "0.32.1"
 resolution = true
 
 [programs.localnet]
-solcrush_staking = "2MQaPBWNXRFZS5eb3Tht7GXBgtGvih9L72PNXAmPCRu6"
+solcrush_staking = "7LLvnnLaqME25Kuf7Q6nUgFrrKKSWxUNdC62fFV21eZs"
 
 [programs.devnet]
-solcrush_staking = "2MQaPBWNXRFZS5eb3Tht7GXBgtGvih9L72PNXAmPCRu6"
+solcrush_staking = "7LLvnnLaqME25Kuf7Q6nUgFrrKKSWxUNdC62fFV21eZs"
 
 [registry]
 url = "https://api.apr.dev"
