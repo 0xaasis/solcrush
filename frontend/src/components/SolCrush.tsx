@@ -126,7 +126,7 @@ const audio = new AudioEngine();
 
 // Wallet Button
 const WalletButton: React.FC = () => {
-const { publicKey, disconnect, connected, connecting, signTransaction, signAllTransactions } = useWallet();
+const { publicKey, disconnect, connected, connecting } = useWallet();
   const { setVisible } = useWalletModal();
   const { connection } = useConnection();
   const [balance, setBalance] = useState<number>(0);
@@ -376,9 +376,8 @@ const ResultsScreen: React.FC<{
 // ============================================================================
 
 const SolCrush: React.FC = () => {
-  const { connected, publicKey } = useWallet();
+const { connected, publicKey, signTransaction, signAllTransactions } = useWallet();
   const { connection } = useConnection();
-  
   const [gamePhase, setGamePhase] = useState<'lobby' | 'stake' | 'matchmaking' | 'playing' | 'results'>('lobby');
   const [selectedStake, setSelectedStake] = useState(5);
   const [stakeType, setStakeType] = useState<'SOL' | 'USDC'>('USDC');
