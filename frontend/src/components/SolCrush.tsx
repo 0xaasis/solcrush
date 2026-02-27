@@ -126,7 +126,7 @@ const audio = new AudioEngine();
 
 // Wallet Button
 const WalletButton: React.FC = () => {
-  const { publicKey, disconnect, connected, connecting } = useWallet();
+const { publicKey, disconnect, connected, connecting, signTransaction, signAllTransactions } = useWallet();
   const { setVisible } = useWalletModal();
   const { connection } = useConnection();
   const [balance, setBalance] = useState<number>(0);
