@@ -1,7 +1,6 @@
 /**
  * solcrushChain.ts
- * Complete on-chain staking client for SolCrush
- * Handles: createMatch, depositStake, resolveMatch, cancelMatch
+ * On-chain staking client for SolCrush
  */
 
 import {
@@ -10,13 +9,15 @@ import {
   Transaction,
   SystemProgram,
   LAMPORTS_PER_SOL,
-  Commitment,
 } from '@solana/web3.js';
 import {
   getAssociatedTokenAddress,
   createAssociatedTokenAccountInstruction,
   TOKEN_PROGRAM_ID,
   ASSOCIATED_TOKEN_PROGRAM_ID,
+  NATIVE_MINT,
+  createSyncNativeInstruction,
+  createCloseAccountInstruction,
 } from '@solana/spl-token';
 import { Program, AnchorProvider, BN, web3 } from '@coral-xyz/anchor';
 import { WalletContextState } from '@solana/wallet-adapter-react';
@@ -24,22 +25,16 @@ import IDL from './idl.json';
 
 // ─── Constants ───────────────────────────────────────────────────────────────
 
-export const PROGRAM_ID = new PublicKey(
-  process.env.NEXT_PUBLIC_PROGRAM_ID || 'REPLACE_AFTER_DEPLOY'
-);
+// Hardcoded — don't rely on env var which can be undefined at runtime
+export const PROGRAM_ID = new PublicKey('7LLvnnLaqME25Kuf7Q6nUgFrrKKSWxUNdC62fFV21eZs');
+export const TREASURY   = new PublicKey('5o65W1kooL1Tb9ZBKPu9BABQ79fo7x8st7X9V4TDJjZC');
 
-export const USDC_MINT = new PublicKey(
-  process.env.NEXT_PUBLIC_USDC_MINT || '4zMMC9srt5Ri5X14GAgXhaHii3GnPAEERYPJgZJDncDU'
-);
+// Devnet USDC
+export const USDC_MINT  = new PublicKey('4zMMC9srt5Ri5X14GAgXhaHii3GnPAEERYPJgZJDncDU');
 
-export const TREASURY = new PublicKey(
-  process.env.NEXT_PUBLIC_TREASURY || 'REPLACE_WITH_TREASURY_WALLET'
-);
+// Wrapped SOL mint (So111...112) — used for SOL matches via SPL token
+export const WSOL_MINT  = NATIVE_MINT;
 
-export const RPC_ENDPOINT =
-  process.env.NEXT_PUBLIC_RPC_ENDPOINT || 'https://api.devnet.solana.com';
-
-/** USDC has 6 decimal places */
 export const USDC_DECIMALS = 6;
 
 // ─── PDA helpers ─────────────────────────────────────────────────────────────
@@ -58,56 +53,41 @@ export function getVaultPDA(matchId: Uint8Array): [PublicKey, number] {
   );
 }
 
-/** Generate a unique 32-byte match ID */
 export function generateMatchId(): Uint8Array {
   const id = new Uint8Array(32);
   crypto.getRandomValues(id);
   return id;
 }
 
-/** Convert match ID to hex string for display/storage */
 export function matchIdToHex(id: Uint8Array): string {
   return Array.from(id).map(b => b.toString(16).padStart(2, '0')).join('');
 }
 
-// ─── Amount helpers ───────────────────────────────────────────────────────────
-
-/** Convert display amount to on-chain units */
 export function toChainAmount(amount: number, isSol: boolean): BN {
-  if (isSol) {
-    return new BN(Math.floor(amount * LAMPORTS_PER_SOL));
-  } else {
-    return new BN(Math.floor(amount * Math.pow(10, USDC_DECIMALS)));
-  }
+  return new BN(Math.floor(amount * (isSol ? LAMPORTS_PER_SOL : Math.pow(10, USDC_DECIMALS))));
 }
 
-/** Convert on-chain units to display amount */
 export function fromChainAmount(amount: BN, isSol: boolean): number {
-  if (isSol) {
-    return amount.toNumber() / LAMPORTS_PER_SOL;
-  } else {
-    return amount.toNumber() / Math.pow(10, USDC_DECIMALS);
-  }
+  return amount.toNumber() / (isSol ? LAMPORTS_PER_SOL : Math.pow(10, USDC_DECIMALS));
 }
 
-// ─── Provider setup ───────────────────────────────────────────────────────────
+export function explorerUrl(signature: string): string {
+  return `https://explorer.solana.com/tx/${signature}?cluster=devnet`;
+}
 
-export function getProgram(
-  wallet: WalletContextState,
-  connection: Connection
-): Program {
-  const provider = new AnchorProvider(
-    connection,
-    wallet as any,
-    { commitment: 'confirmed', preflightCommitment: 'confirmed' }
-  );
+// ─── Provider ─────────────────────────────────────────────────────────────────
+
+function getProgram(wallet: WalletContextState, connection: Connection): Program {
+  const provider = new AnchorProvider(connection, wallet as any, {
+    commitment: 'confirmed',
+    preflightCommitment: 'confirmed',
+  });
   return new Program(IDL as any, PROGRAM_ID, provider);
 }
 
-// ─── Transaction helpers ──────────────────────────────────────────────────────
+// ─── ATA helper ──────────────────────────────────────────────────────────────
 
-/** Ensure an ATA exists, return instruction to create it if not */
-async function ensureATA(
+async function getOrCreateATA(
   connection: Connection,
   mint: PublicKey,
   owner: PublicKey,
@@ -115,13 +95,13 @@ async function ensureATA(
 ): Promise<{ ata: PublicKey; createIx: web3.TransactionInstruction | null }> {
   const ata = await getAssociatedTokenAddress(mint, owner, false);
   const info = await connection.getAccountInfo(ata);
-  const createIx = info
-    ? null
-    : createAssociatedTokenAccountInstruction(payer, ata, owner, mint);
-  return { ata, createIx };
+  return {
+    ata,
+    createIx: info ? null : createAssociatedTokenAccountInstruction(payer, ata, owner, mint),
+  };
 }
 
-// ─── Main client class ────────────────────────────────────────────────────────
+// ─── Main client ─────────────────────────────────────────────────────────────
 
 export class SolCrushChain {
   private program: Program;
@@ -129,133 +109,155 @@ export class SolCrushChain {
   private wallet: WalletContextState;
 
   constructor(wallet: WalletContextState, connection: Connection) {
-    this.wallet = wallet;
+    this.wallet  = wallet;
     this.connection = connection;
     this.program = getProgram(wallet, connection);
   }
 
-  /**
-   * STEP 1: P1 creates the escrow and deposits their stake.
-   * Returns { matchId, escrowPDA, signature }
-   */
+  // ── Create match (P1 deposits stake) ───────────────────────────────────────
   async createMatch(
     stakeAmount: number,
     isSol: boolean
   ): Promise<{ matchId: Uint8Array; escrowPDA: PublicKey; signature: string }> {
     const playerOne = this.wallet.publicKey!;
-    const matchId = generateMatchId();
+    const matchId   = generateMatchId();
     const [escrowPDA] = getEscrowPDA(matchId);
-    const [vaultPDA] = getVaultPDA(matchId);
+    const [vaultPDA]  = getVaultPDA(matchId);
     const chainAmount = toChainAmount(stakeAmount, isSol);
-    const mint = USDC_MINT;
+    const mint = isSol ? WSOL_MINT : USDC_MINT;
 
-    let tx: Transaction;
+    const tx = new Transaction();
 
     if (isSol) {
-      // SOL path — use a dummy mint pubkey (SOL has no mint)
-      const dummyMint = SystemProgram.programId;
-      tx = await (this.program.methods as any)
-        .initializeMatch(Array.from(matchId), chainAmount, true)
-        .accounts({
-          matchEscrow: escrowPDA,
-          vault: vaultPDA,
-          tokenMint: dummyMint,
-          playerOneAta: playerOne, // unused for SOL
-          playerOne,
-          treasury: TREASURY,
-          tokenProgram: TOKEN_PROGRAM_ID,
-          associatedTokenProgram: ASSOCIATED_TOKEN_PROGRAM_ID,
-          systemProgram: SystemProgram.programId,
-          rent: web3.SYSVAR_RENT_PUBKEY,
-        })
-        .transaction();
-    } else {
-      // USDC path
-      const { ata: playerOneAta, createIx } = await ensureATA(
-        this.connection, mint, playerOne, playerOne
+      // For SOL: wrap SOL into a temp wSOL ATA, then program transfers from it
+      const wsolAta = await getAssociatedTokenAddress(WSOL_MINT, playerOne);
+      const wsolInfo = await this.connection.getAccountInfo(wsolAta);
+
+      // Create wSOL ATA if needed
+      if (!wsolInfo) {
+        tx.add(createAssociatedTokenAccountInstruction(playerOne, wsolAta, playerOne, WSOL_MINT));
+      }
+
+      // Transfer SOL to wSOL ATA and sync
+      tx.add(
+        SystemProgram.transfer({ fromPubkey: playerOne, toPubkey: wsolAta, lamports: chainAmount.toNumber() }),
+        createSyncNativeInstruction(wsolAta)
       );
 
-      tx = await (this.program.methods as any)
+      const ix = await (this.program.methods as any)
+        .initializeMatch(Array.from(matchId), chainAmount, true)
+        .accounts({
+          matchEscrow:            escrowPDA,
+          vault:                  vaultPDA,
+          tokenMint:              WSOL_MINT,
+          playerOneAta:           wsolAta,
+          playerOne,
+          treasury:               TREASURY,
+          tokenProgram:           TOKEN_PROGRAM_ID,
+          associatedTokenProgram: ASSOCIATED_TOKEN_PROGRAM_ID,
+          systemProgram:          SystemProgram.programId,
+          rent:                   web3.SYSVAR_RENT_PUBKEY,
+        })
+        .instruction();
+
+      tx.add(ix);
+    } else {
+      // USDC path
+      const { ata: playerOneAta, createIx } = await getOrCreateATA(
+        this.connection, USDC_MINT, playerOne, playerOne
+      );
+      if (createIx) tx.add(createIx);
+
+      const ix = await (this.program.methods as any)
         .initializeMatch(Array.from(matchId), chainAmount, false)
         .accounts({
-          matchEscrow: escrowPDA,
-          vault: vaultPDA,
-          tokenMint: mint,
+          matchEscrow:            escrowPDA,
+          vault:                  vaultPDA,
+          tokenMint:              USDC_MINT,
           playerOneAta,
           playerOne,
-          treasury: TREASURY,
-          tokenProgram: TOKEN_PROGRAM_ID,
+          treasury:               TREASURY,
+          tokenProgram:           TOKEN_PROGRAM_ID,
           associatedTokenProgram: ASSOCIATED_TOKEN_PROGRAM_ID,
-          systemProgram: SystemProgram.programId,
-          rent: web3.SYSVAR_RENT_PUBKEY,
+          systemProgram:          SystemProgram.programId,
+          rent:                   web3.SYSVAR_RENT_PUBKEY,
         })
-        .transaction();
+        .instruction();
 
-      if (createIx) tx.instructions.unshift(createIx);
+      tx.add(ix);
     }
 
     const signature = await this.sendTx(tx);
     return { matchId, escrowPDA, signature };
   }
 
-  /**
-   * STEP 2: P2 deposits their matching stake.
-   * Called when matchmaking finds an opponent.
-   */
-  async depositStake(
-    matchId: Uint8Array,
-    isSol: boolean
-  ): Promise<string> {
+  // ── Deposit stake (P2 joins) ────────────────────────────────────────────────
+  async depositStake(matchId: Uint8Array, isSol: boolean): Promise<string> {
     const playerTwo = this.wallet.publicKey!;
     const [escrowPDA] = getEscrowPDA(matchId);
-    const [vaultPDA] = getVaultPDA(matchId);
-    const mint = USDC_MINT;
+    const [vaultPDA]  = getVaultPDA(matchId);
+    const mint = isSol ? WSOL_MINT : USDC_MINT;
 
-    let tx: Transaction;
+    const tx = new Transaction();
 
     if (isSol) {
-      tx = await (this.program.methods as any)
-        .depositStake()
-        .accounts({
-          matchEscrow: escrowPDA,
-          vault: vaultPDA,
-          tokenMint: SystemProgram.programId,
-          playerTwoAta: playerTwo,
-          playerTwo,
-          tokenProgram: TOKEN_PROGRAM_ID,
-          associatedTokenProgram: ASSOCIATED_TOKEN_PROGRAM_ID,
-          systemProgram: SystemProgram.programId,
-        })
-        .transaction();
-    } else {
-      const { ata: playerTwoAta, createIx } = await ensureATA(
-        this.connection, mint, playerTwo, playerTwo
+      // Fetch escrow to get stake amount
+      const escrow = await (this.program.account as any).matchEscrow.fetch(escrowPDA);
+      const lamports = escrow.stakeAmount.toNumber();
+      const wsolAta = await getAssociatedTokenAddress(WSOL_MINT, playerTwo);
+      const wsolInfo = await this.connection.getAccountInfo(wsolAta);
+
+      if (!wsolInfo) {
+        tx.add(createAssociatedTokenAccountInstruction(playerTwo, wsolAta, playerTwo, WSOL_MINT));
+      }
+
+      tx.add(
+        SystemProgram.transfer({ fromPubkey: playerTwo, toPubkey: wsolAta, lamports }),
+        createSyncNativeInstruction(wsolAta)
       );
 
-      tx = await (this.program.methods as any)
+      const ix = await (this.program.methods as any)
         .depositStake()
         .accounts({
-          matchEscrow: escrowPDA,
-          vault: vaultPDA,
-          tokenMint: mint,
+          matchEscrow:            escrowPDA,
+          vault:                  vaultPDA,
+          tokenMint:              WSOL_MINT,
+          playerTwoAta:           wsolAta,
+          playerTwo,
+          tokenProgram:           TOKEN_PROGRAM_ID,
+          associatedTokenProgram: ASSOCIATED_TOKEN_PROGRAM_ID,
+          systemProgram:          SystemProgram.programId,
+        })
+        .instruction();
+
+      tx.add(ix);
+    } else {
+      const { ata: playerTwoAta, createIx } = await getOrCreateATA(
+        this.connection, USDC_MINT, playerTwo, playerTwo
+      );
+      if (createIx) tx.add(createIx);
+
+      const ix = await (this.program.methods as any)
+        .depositStake()
+        .accounts({
+          matchEscrow:            escrowPDA,
+          vault:                  vaultPDA,
+          tokenMint:              USDC_MINT,
           playerTwoAta,
           playerTwo,
-          tokenProgram: TOKEN_PROGRAM_ID,
+          tokenProgram:           TOKEN_PROGRAM_ID,
           associatedTokenProgram: ASSOCIATED_TOKEN_PROGRAM_ID,
-          systemProgram: SystemProgram.programId,
+          systemProgram:          SystemProgram.programId,
         })
-        .transaction();
+        .instruction();
 
-      if (createIx) tx.instructions.unshift(createIx);
+      tx.add(ix);
     }
 
     return this.sendTx(tx);
   }
 
-  /**
-   * STEP 3: Winner calls this after game ends.
-   * Pays winner (2× stake − 2.5% fee). Fee → treasury.
-   */
+  // ── Resolve match (pay winner) ──────────────────────────────────────────────
   async resolveMatch(
     matchId: Uint8Array,
     playerOnePubkey: PublicKey,
@@ -263,88 +265,57 @@ export class SolCrushChain {
     isSol: boolean,
     winner: PublicKey
   ): Promise<string> {
-    const caller = this.wallet.publicKey!;
+    const caller      = this.wallet.publicKey!;
     const [escrowPDA] = getEscrowPDA(matchId);
-    const [vaultPDA] = getVaultPDA(matchId);
-    const mint = USDC_MINT;
+    const [vaultPDA]  = getVaultPDA(matchId);
+    const mint        = isSol ? WSOL_MINT : USDC_MINT;
 
-    let accounts: Record<string, PublicKey>;
+    const p1Ata      = await getAssociatedTokenAddress(mint, playerOnePubkey);
+    const p2Ata      = await getAssociatedTokenAddress(mint, playerTwoPubkey);
+    const treasAta   = await getAssociatedTokenAddress(mint, TREASURY);
 
-    if (isSol) {
-      accounts = {
-        matchEscrow: escrowPDA,
-        vault: vaultPDA,
-        tokenMint: SystemProgram.programId,
-        caller,
-        playerOne: playerOnePubkey,
-        playerTwo: playerTwoPubkey,
-        playerOneAta: playerOnePubkey,
-        playerTwoAta: playerTwoPubkey,
-        treasury: TREASURY,
-        treasuryAta: TREASURY,
-        tokenProgram: TOKEN_PROGRAM_ID,
-        associatedTokenProgram: ASSOCIATED_TOKEN_PROGRAM_ID,
-        systemProgram: SystemProgram.programId,
-      };
-    } else {
-      const [p1Ata] = await Promise.all([
-        getAssociatedTokenAddress(mint, playerOnePubkey),
-      ]);
-      const p2Ata = await getAssociatedTokenAddress(mint, playerTwoPubkey);
-      const treasuryAta = await getAssociatedTokenAddress(mint, TREASURY);
+    const tx = new Transaction();
 
-      // Ensure treasury ATA exists
-      const treasuryAtaInfo = await this.connection.getAccountInfo(treasuryAta);
-      const tx = await (this.program.methods as any)
-        .resolveMatch(winner)
-        .accounts({
-          matchEscrow: escrowPDA,
-          vault: vaultPDA,
-          tokenMint: mint,
-          caller,
-          playerOne: playerOnePubkey,
-          playerTwo: playerTwoPubkey,
-          playerOneAta: p1Ata,
-          playerTwoAta: p2Ata,
-          treasury: TREASURY,
-          treasuryAta,
-          tokenProgram: TOKEN_PROGRAM_ID,
-          associatedTokenProgram: ASSOCIATED_TOKEN_PROGRAM_ID,
-          systemProgram: SystemProgram.programId,
-        })
-        .transaction();
-
-      if (!treasuryAtaInfo) {
-        tx.instructions.unshift(
-          createAssociatedTokenAccountInstruction(caller, treasuryAta, TREASURY, mint)
-        );
-      }
-
-      return this.sendTx(tx);
+    // Create treasury ATA if it doesn't exist
+    const treasInfo = await this.connection.getAccountInfo(treasAta);
+    if (!treasInfo) {
+      tx.add(createAssociatedTokenAccountInstruction(caller, treasAta, TREASURY, mint));
     }
 
-    const tx = await (this.program.methods as any)
+    const ix = await (this.program.methods as any)
       .resolveMatch(winner)
-      .accounts(accounts)
-      .transaction();
+      .accounts({
+        matchEscrow:            escrowPDA,
+        vault:                  vaultPDA,
+        tokenMint:              mint,
+        caller,
+        playerOne:              playerOnePubkey,
+        playerTwo:              playerTwoPubkey,
+        playerOneAta:           p1Ata,
+        playerTwoAta:           p2Ata,
+        treasury:               TREASURY,
+        treasuryAta:            treasAta,
+        tokenProgram:           TOKEN_PROGRAM_ID,
+        associatedTokenProgram: ASSOCIATED_TOKEN_PROGRAM_ID,
+        systemProgram:          SystemProgram.programId,
+      })
+      .instruction();
 
+    tx.add(ix);
     return this.sendTx(tx);
   }
 
-  /**
-   * Cancel match and refund both players.
-   * Only works after 10-minute timeout for active matches.
-   */
+  // ── Cancel match (refund) ───────────────────────────────────────────────────
   async cancelMatch(
     matchId: Uint8Array,
     playerOnePubkey: PublicKey,
     playerTwoPubkey: PublicKey,
     isSol: boolean
   ): Promise<string> {
-    const caller = this.wallet.publicKey!;
+    const caller      = this.wallet.publicKey!;
     const [escrowPDA] = getEscrowPDA(matchId);
-    const [vaultPDA] = getVaultPDA(matchId);
-    const mint = USDC_MINT;
+    const [vaultPDA]  = getVaultPDA(matchId);
+    const mint        = isSol ? WSOL_MINT : USDC_MINT;
 
     const p1Ata = await getAssociatedTokenAddress(mint, playerOnePubkey);
     const p2Ata = await getAssociatedTokenAddress(mint, playerTwoPubkey);
@@ -352,24 +323,24 @@ export class SolCrushChain {
     const tx = await (this.program.methods as any)
       .cancelMatch()
       .accounts({
-        matchEscrow: escrowPDA,
-        vault: vaultPDA,
-        tokenMint: isSol ? SystemProgram.programId : mint,
+        matchEscrow:            escrowPDA,
+        vault:                  vaultPDA,
+        tokenMint:              mint,
         caller,
-        playerOne: playerOnePubkey,
-        playerTwo: playerTwoPubkey,
-        playerOneAta: isSol ? playerOnePubkey : p1Ata,
-        playerTwoAta: isSol ? playerTwoPubkey : p2Ata,
-        tokenProgram: TOKEN_PROGRAM_ID,
+        playerOne:              playerOnePubkey,
+        playerTwo:              playerTwoPubkey,
+        playerOneAta:           p1Ata,
+        playerTwoAta:           p2Ata,
+        tokenProgram:           TOKEN_PROGRAM_ID,
         associatedTokenProgram: ASSOCIATED_TOKEN_PROGRAM_ID,
-        systemProgram: SystemProgram.programId,
+        systemProgram:          SystemProgram.programId,
       })
       .transaction();
 
     return this.sendTx(tx);
   }
 
-  /** Fetch on-chain match state */
+  // ── Fetch match state ───────────────────────────────────────────────────────
   async fetchEscrow(matchId: Uint8Array) {
     const [escrowPDA] = getEscrowPDA(matchId);
     try {
@@ -379,17 +350,16 @@ export class SolCrushChain {
     }
   }
 
-  // ─── Private ─────────────────────────────────────────────────────────────
-
+  // ── Send transaction ────────────────────────────────────────────────────────
   private async sendTx(tx: Transaction): Promise<string> {
     const { blockhash, lastValidBlockHeight } =
       await this.connection.getLatestBlockhash('confirmed');
+
     tx.recentBlockhash = blockhash;
-    tx.feePayer = this.wallet.publicKey!;
+    tx.feePayer        = this.wallet.publicKey!;
 
     const signed = await this.wallet.signTransaction!(tx);
-    const raw = signed.serialize();
-    const sig = await this.connection.sendRawTransaction(raw, {
+    const sig    = await this.connection.sendRawTransaction(signed.serialize(), {
       skipPreflight: false,
       preflightCommitment: 'confirmed',
     });
@@ -401,11 +371,4 @@ export class SolCrushChain {
 
     return sig;
   }
-}
-
-/** Explorer URL for a transaction */
-export function explorerUrl(signature: string): string {
-  const cluster = process.env.NEXT_PUBLIC_SOLANA_NETWORK === 'mainnet-beta'
-    ? '' : '?cluster=devnet';
-  return `https://explorer.solana.com/tx/${signature}${cluster}`;
 }
