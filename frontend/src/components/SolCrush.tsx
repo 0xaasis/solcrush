@@ -507,8 +507,8 @@ const { connected, publicKey, signTransaction, signAllTransactions } = useWallet
   }, []);
 
   // Process matches
-  const processMatches = useCallback(async (boardState: any[][], swapPos: { row: number; col: number } | null = null) => {
-    const { matches, groups } = findMatches(boardState);
+const processMatches = useCallback(async (boardState: any[][], swapPos: { row: number; col: number } | null = null): Promise<{ board: any[][], scored: number }> => {
+  const { matches, groups } = findMatches(boardState);
     if (matches.length === 0) return { board: boardState, scored: 0 };
 
     audio.playMatch(matches.length);
