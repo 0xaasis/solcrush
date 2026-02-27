@@ -1,203 +1,126 @@
-# 🍬 SolCrush — PvP Match-3 Wagering on Solana
+# SolCrush 🍬
 
-> **Trustless PvP match-3. Stake SOL or USDC. Winner takes all.**
-> Real-time gameplay via MagicBlock Ephemeral Rollups. On-chain escrow. No custodians.
+PvP match-3 on Solana. You stake, you play, winner gets paid — all on-chain, no backend holding your funds.
 
-🌐 **[Play on Devnet → solcrush.vercel.app](https://solcrush.vercel.app)**
-
----
-
-## 🏆 Hackathon Submission
-
-| | |
-|---|---|
-| **Event** | Graveyard Hack 2025 |
-| **Track** | MagicBlock Gaming ($5,000 prize pool) |
-| **Category** | Resurrect Gaming on Solana |
-| **Builder** | [@0xaasis](https://github.com/0xaasis) |
+**[solcrush.vercel.app](https://solcrush.vercel.app)** · Devnet
 
 ---
 
-## 🎮 What Is SolCrush?
+## What's this?
 
-Two players stake SOL or USDC, play identical match-3 boards simultaneously for 4 rounds, and the higher score wins the full pot minus a 2.5% platform fee — all settled trustlessly on-chain.
+Basically Candy Crush but you're wagering real tokens against another player. Both players stake the same amount, play a 4-round match-3 game, and whoever scores higher wins the pot. The escrow is a PDA — neither player can touch the funds until the match resolves.
 
-**The house never touches the funds. The escrow PDA holds everything.**
+Built for the MagicBlock Gaming track at Graveyard Hack 2026.
 
 ```
-Player 1 stakes 5 USDC ──┐
-                          ├──► Escrow PDA ──► Winner gets 9.75 USDC
-Player 2 stakes 5 USDC ──┘                   Treasury gets 0.25 USDC
+you stake 5 USDC
+opponent stakes 5 USDC
+   → escrow PDA holds 10 USDC
+   → you win
+   → you get 9.75 USDC, treasury gets 0.25
 ```
+
+No custodian. No trust required.
 
 ---
 
-## ⚡ MagicBlock Integration
+## The MagicBlock part
 
-SolCrush uses **MagicBlock Ephemeral Rollups** to solve the core problem of on-chain gaming: Solana's 400ms block time is too slow for real-time match-3 gameplay.
+The real problem with on-chain gaming is that Solana's 400ms block time makes real-time gameplay feel broken. Every move can't be a transaction — that's unusable.
 
-### How It Works
+MagicBlock's ephemeral rollups fix this. The escrow gets created on L1, then the match account gets delegated to the rollup. Gameplay happens there — sub-100ms, zero fees per move. When the match ends, scores get committed back to L1 and the winner gets paid out.
+
+The whole match = 3 L1 transactions. Everything in between is free.
 
 ```
-create_match()     → Solana L1  (escrow created, funds locked)
-join_match()       → Solana L1  (P2 deposits, match activated)
-delegate_match()   → L1 → Rollup (PDA ownership transferred)
-─────────────────────────────────────────────────────────────
-[4 rounds of gameplay happen here on Ephemeral Rollup]
-  • Sub-100ms move validation
-  • Zero fees per move
-  • Real Solana accounts, real state
-─────────────────────────────────────────────────────────────
-commit_match()     → Rollup → L1 (final scores written back)
-resolve_match()    → Solana L1  (winner paid, escrow closed)
-```
-
-### Why This Matters
-
-Without MagicBlock, every gem swap would require an L1 transaction (~400ms, ~$0.001). A 4-round match has hundreds of moves — that's minutes of lag and real transaction fees per game.
-
-With Ephemeral Rollups: the entire match costs the same as **3 L1 transactions total**.
-
-### Magic Router
-
-The frontend uses Magic Router (`devnet-router.magicblock.app`) which auto-routes transactions to the rollup or L1 based on delegation status — no special logic needed in the UI.
-
----
-
-## 🔐 On-Chain Architecture
-
-### Smart Contract (Anchor 0.29)
-
-| Instruction | What it does |
-|---|---|
-| `initialize_match` | P1 creates escrow PDA, deposits stake |
-| `deposit_stake` | P2 joins, deposits matching stake |
-| `delegate_match` | Transfers PDA to MagicBlock delegation program |
-| `commit_match` | Commits rollup state back to L1 |
-| `resolve_match` | Pays winner, sends 2.5% fee to treasury |
-| `cancel_match` | Refunds both players (timeout protection) |
-
-### PDA Seeds
-```
-Escrow PDA: ["escrow", match_id_32_bytes]
-Vault PDA:  ["vault",  match_id_32_bytes]  ← holds USDC
-```
-
-### Security
-- ✅ PDA escrow — neither player controls funds unilaterally
-- ✅ Winner must be P1 or P2 — no fake winners possible
-- ✅ Double-payout prevented — status → `Resolved` before transfer
-- ✅ Checked arithmetic everywhere — no overflow
-- ✅ Cancel timeout — 10 min protection against abandoned matches
-- ✅ Rent reclaimed when vault closes
-
----
-
-## 🎯 Anti-Cheat: Dual-Submit Replay Consensus
-
-Both players submit their complete move log at match end. The server replays both logs deterministically on the same seeded board and compares scores. If they match → result is valid. If not → dispute flagged.
-
-```typescript
-// Both players send: { moves: Move[], seed: number, score: number }
-// Server replays both logs independently
-const p1Verified = replayEngine.replay(p1Moves, boardSeed);
-const p2Verified = replayEngine.replay(p2Moves, boardSeed);
-// Scores must match within tolerance
+initialize_match()  →  L1    (lock funds)
+delegate_match()    →  L1 → Rollup
+  ... gameplay on rollup ...
+commit_match()      →  Rollup → L1
+resolve_match()     →  L1    (pay winner)
 ```
 
 ---
 
-## 🖥️ Tech Stack
+## Program
 
-| Layer | Tech |
-|---|---|
-| Smart Contract | Anchor 0.29, Rust |
-| Rollup Integration | MagicBlock Ephemeral Rollups SDK |
-| Frontend | Next.js 14, React 18, TypeScript |
-| Wallet | @solana/wallet-adapter (Phantom, Solflare, Coinbase) |
-| Token | @solana/spl-token (USDC + native SOL) |
-| Game Server | Node.js WebSocket |
-| Anti-Cheat | Deterministic replay engine |
+Deployed on devnet: `7LLvnnLaqME25Kuf7Q6nUgFrrKKSWxUNdC62fFV21eZs`
+
+[View on Explorer](https://explorer.solana.com/address/7LLvnnLaqME25Kuf7Q6nUgFrrKKSWxUNdC62fFV21eZs?cluster=devnet)
+
+Written in Anchor. Four core instructions:
+
+- `initialize_match` — P1 creates the escrow PDA and deposits their stake
+- `deposit_stake` — P2 joins and deposits their stake, match goes active
+- `resolve_match` — verifies winner is actually P1 or P2, pays out, closes vault
+- `cancel_match` — refund path if someone abandons (10 min timeout)
+
+PDA seeds are `["escrow", match_id]` where match_id is 32 random bytes generated client-side. The resolve instruction marks status as Resolved before the transfer, uses checked arithmetic throughout, and reclaims rent from the vault on close.
 
 ---
 
-## 📁 Repository Structure
+## Anti-cheat
+
+Both players submit their full move log at match end. The server replays both logs on the same seeded board and checks if scores match. Same moves on the same seed always produce the same result — scores can't be faked.
+
+---
+
+## Stack
+
+- Anchor 0.29 / Rust for the program
+- MagicBlock Ephemeral Rollups SDK
+- Next.js 14 + TypeScript frontend
+- `@solana/wallet-adapter` — Phantom, Solflare, Coinbase Wallet
+- SPL token for USDC, native SOL support
+
+---
+
+## Repo structure
 
 ```
 solcrush/
-├── program/                         ← Anchor smart contract
-│   └── src/
-│       ├── lib.rs                   ← 6 instructions
-│       ├── state.rs                 ← MatchEscrow account
-│       ├── errors.rs                ← Custom error codes
-│       └── instructions/
-│           ├── initialize_match.rs  ← P1 creates escrow
-│           ├── deposit_stake.rs     ← P2 deposits
-│           ├── delegate_match.rs    ← 🔮 MagicBlock delegate
-│           ├── commit_match.rs      ← 🔮 MagicBlock commit
-│           ├── resolve_match.rs     ← Pay winner + fee
-│           └── cancel_match.rs     ← Refund players
+├── program/src/
+│   ├── lib.rs
+│   ├── state.rs          ← MatchEscrow account (158 bytes)
+│   ├── errors.rs         ← 9 custom errors
+│   └── instructions/
+│       ├── initialize_match.rs
+│       ├── deposit_stake.rs
+│       ├── resolve_match.rs
+│       └── cancel_match.rs
 │
-├── frontend/
-│   └── src/
-│       ├── components/SolCrush.tsx  ← Full game UI
-│       ├── lib/solcrushChain.ts     ← Blockchain client
-│       ├── lib/rollupClient.ts      ← 🔮 MagicBlock client
-│       └── lib/idl.json            ← Program IDL
+├── frontend/src/
+│   ├── components/SolCrush.tsx   ← game UI
+│   ├── lib/solcrushChain.ts      ← on-chain client
+│   └── lib/idl.json
 │
-├── scripts/
-│   ├── deploy.sh                   ← One-command deploy
-│   └── test-staking.ts             ← E2E test
-│
-└── vercel.json
-```
-
-🔮 = MagicBlock-specific files
-
----
-
-## 🚀 Try It (Devnet)
-
-1. Go to **[solcrush.vercel.app](https://solcrush.vercel.app)**
-2. Connect **Phantom wallet** (switch to Devnet in settings)
-3. Get devnet SOL: `solana airdrop 2 YOUR_WALLET`
-4. Pick a stake amount → click **Find Match**
-5. Sign the deposit transaction
-6. Play 4 rounds of match-3
-7. Winner receives payout automatically on-chain
-8. Check your transaction on **Solana Explorer**
-
----
-
-## 💰 Payout Math
-
-```
-Prize pool  = stake × 2
-Fee         = prize pool × 2.5%
-Winner gets = prize pool − fee
-
-Example (5 USDC stake):
-  Pool:   10.00 USDC
-  Fee:     0.25 USDC → treasury
-  Winner:  9.75 USDC → winner wallet
+└── scripts/
+    └── test-staking.ts
 ```
 
 ---
 
-## 🪦 Why "Graveyard Hack"?
+## Try it
 
-Gaming on Solana died because:
-- L1 is too slow for real-time gameplay
-- On-chain moves cost real fees
-- Developers gave up and went fully off-chain
-
-SolCrush resurrects it by combining:
-- **MagicBlock** for sub-100ms gameplay with zero move fees
-- **Anchor PDA escrow** for trustless fund custody
-- **SPL token support** for USDC + native SOL wagering
-
-The game is competitive, the stakes are real, and the chain is the referee.
+1. Open [solcrush.vercel.app](https://solcrush.vercel.app)
+2. Connect Phantom on **Devnet**
+3. Get devnet SOL from [faucet.solana.com](https://faucet.solana.com) if needed
+4. Pick a stake → Find Match → sign the tx
+5. Play 4 rounds, see who wins
+6. Check the tx on [Solana Explorer](https://explorer.solana.com/?cluster=devnet)
 
 ---
 
-*Built for the Graveyard Hack — MagicBlock Gaming Track 🎮🍬*
+## Payout
+
+```
+pool    = stake × 2
+fee     = pool × 2.5%
+winner  = pool - fee
+```
+
+5 USDC stake → winner gets 9.75 USDC.
+
+---
+
+Built for Graveyard Hack 2025 — MagicBlock Gaming track 🎮
