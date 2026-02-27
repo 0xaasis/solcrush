@@ -724,7 +724,7 @@ const processMatches = useCallback(async (boardState: any[][], swapPos: { row: n
 
           <div className="flex justify-center">
             <div className="p-1 rounded-2xl bg-white/10 backdrop-blur-sm">
-              {['SOL', 'USDC'].map((t) => (
+              {['USDC'].map((t) => (
                 <button key={t} onClick={() => { audio.playClick(); setStakeType(t as any); }}
                   className={`relative px-8 py-3 rounded-xl font-bold transition-all ${stakeType === t ? 'text-white' : 'text-white/50'}`}>
                   {stakeType === t && <div className="absolute inset-0 rounded-xl" style={{ background: 'linear-gradient(135deg, #667eea, #764ba2)' }} />}
