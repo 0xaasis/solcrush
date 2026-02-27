@@ -453,7 +453,15 @@ const handleFindMatch = async () => {
     setTxMessage(err?.message?.slice(0, 80) || 'Transaction failed');
   }
 
-  setTimeout(() => startGame(), 2500);
+  setTimeout(() => {
+    setGamePhase('playing');
+    setBoard(generateBoard());
+    setPlayer1Score(0);
+    setPlayer2Score(0);
+    setCurrentRound(1);
+    setTimeLeft(ROUND_TIME);
+    setCombo(0);
+  }, 2500);
 };
 
   // Find matches
