@@ -439,9 +439,6 @@ const handleFindMatch = async () => {
   setTxStatus('pending');
   setTxMessage('Signing deposit transaction...');
 
-  // Start game after 2.5s regardless of tx result
-  setTimeout(() => startGame(), 2500);
-
   try {
     const chain = new SolCrushChain({ publicKey, signTransaction, signAllTransactions } as any, connection);
     const isSol = stakeType === 'SOL';
@@ -454,8 +451,9 @@ const handleFindMatch = async () => {
   } catch (err: any) {
     setTxStatus('error');
     setTxMessage(err?.message?.slice(0, 80) || 'Transaction failed');
-    // Game still starts even if tx fails
   }
+
+  setTimeout(() => startGame(), 2500);
 };
 
   // Find matches
