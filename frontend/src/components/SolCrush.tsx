@@ -431,43 +431,32 @@ const { connected, publicKey, signTransaction, signAllTransactions } = useWallet
   }, [gamePhase]);
 
   // ── Blockchain: Create match + deposit stake (P1 flow) ───────────────────
-  const handleFindMatch = async () => {
-    audio.playClick();
-    if (!publicKey) return;
+const handleFindMatch = async () => {
+  audio.playClick();
+  if (!publicKey) return;
 
-    setTxStatus('pending');
-    setTxMessage('Signing deposit transaction...');
-    setGamePhase('matchmaking');
+  setGamePhase('matchmaking');
+  setTxStatus('pending');
+  setTxMessage('Signing deposit transaction...');
 
-    try {
-      const chain = new SolCrushChain({ publicKey, signTransaction, signAllTransactions } as any, connection);
-      const isSol = stakeType === 'SOL';
-      const { matchId: newMatchId, signature } = await chain.createMatch(selectedStake, isSol);
+  // Start game after 2.5s regardless of tx result
+  setTimeout(() => startGame(), 2500);
 
-      setMatchId(newMatchId);
-      setIsP1(true);
-      setTxStatus('success');
-      setTxSignature(signature);
-      setTxMessage(`Stake deposited! 🍬`);
-
-      // Simulate finding opponent (replace with real matchmaking server later)
-      setTimeout(() => startGame(), 2500);
-    } catch (err: any) {
-      setTxStatus('error');
-      setTxMessage(err?.message?.slice(0, 80) || 'Transaction failed');
-      setGamePhase('stake');
-    }
-  };
-
-  const startGame = () => {
-    setGamePhase('playing');
-    setBoard(generateBoard());
-    setPlayer1Score(0);
-    setPlayer2Score(0);
-    setCurrentRound(1);
-    setTimeLeft(ROUND_TIME);
-    setCombo(0);
-  };
+  try {
+    const chain = new SolCrushChain({ publicKey, signTransaction, signAllTransactions } as any, connection);
+    const isSol = stakeType === 'SOL';
+    const { matchId: newMatchId, signature } = await chain.createMatch(selectedStake, isSol);
+    setMatchId(newMatchId);
+    setIsP1(true);
+    setTxStatus('success');
+    setTxSignature(signature);
+    setTxMessage(`Stake deposited! 🍬`);
+  } catch (err: any) {
+    setTxStatus('error');
+    setTxMessage(err?.message?.slice(0, 80) || 'Transaction failed');
+    // Game still starts even if tx fails
+  }
+};
 
   // Find matches
   const findMatches = useCallback((boardState: any[][]) => {
