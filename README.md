@@ -9,7 +9,7 @@ PvP match-3 on Solana. You stake, you play, winner gets paid. All on-chain, no b
 
 Basically Candy Crush but you're wagering real tokens against another player. Both players stake the same amount, play a 4-round match-3 game, and whoever scores higher wins the pot. The escrow is a PDA so neither player can touch the funds until the match resolves.
 
-Built for the MagicBlock Gaming track at Graveyard Hack 2025.
+Built for the MagicBlock Gaming track at Graveyard Hack 2026.
 
 ```
 you stake 5 USDC
@@ -122,4 +122,4 @@ winner  = pool - fee
 
 ---
 
-Built for Graveyard Hack 2025 — MagicBlock Gaming track 🎮
+Built for Graveyard Hack 2026 — MagicBlock Gaming track 🎮
