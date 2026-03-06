@@ -2,7 +2,7 @@
 
 PvP match-3 on Solana. You stake, you play, winner gets paid. All on-chain, no backend holding your funds.
 
-[solcrush.xyz](https://solcrush.vercel.app) · Devnet · [Demo Video](https://youtube.com/shorts/NQJ36sAJaD4?feature=share)
+[Try Here](https://solcrush.xyz) · Devnet · [Demo Video](https://youtube.com/shorts/NQJ36sAJaD4?feature=share)
 ---
 
 ## What's this?
